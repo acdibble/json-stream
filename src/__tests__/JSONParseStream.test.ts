@@ -126,6 +126,23 @@ describe(JSONParseStream, () => {
     });
   });
 
+  it('handles empty string in an array', async () => {
+    const jsonStream = Readable.from('[""]').pipe(new JSONParseStream());
+    const it = on(jsonStream, 'token');
+    expect((await it.next()).value[0]).toMatchObject({
+      type: TokenType.ArrayStart,
+      value: '[',
+    });
+    expect((await it.next()).value[0]).toMatchObject({
+      type: TokenType.String,
+      value: '',
+    });
+    expect((await it.next()).value[0]).toMatchObject({
+      type: TokenType.ArrayEnd,
+      value: ']',
+    });
+  });
+
   it('emits correct tokens for array', async () => {
     const jsonStream = Readable.from('[1, true, "test"]').pipe(
       new JSONParseStream(),
@@ -183,6 +200,42 @@ describe(JSONParseStream, () => {
     expect((await it.next()).value[0]).toMatchObject({
       type: TokenType.ArrayEnd,
       value: ']',
+    });
+  });
+
+  it('emits object start and stop', async () => {
+    const jsonStream = Readable.from('{}').pipe(new JSONParseStream());
+    const it = on(jsonStream, 'token');
+    expect((await it.next()).value[0]).toMatchObject({
+      type: TokenType.ObjectStart,
+      value: '{',
+    });
+    expect((await it.next()).value[0]).toMatchObject({
+      type: TokenType.ObjectEnd,
+      value: '}',
+    });
+  });
+
+  it('object with values', async () => {
+    const jsonStream = Readable.from('{"hello":"world"}').pipe(
+      new JSONParseStream(),
+    );
+    const it = on(jsonStream, 'token');
+    expect((await it.next()).value[0]).toMatchObject({
+      type: TokenType.ObjectStart,
+      value: '{',
+    });
+    expect((await it.next()).value[0]).toMatchObject({
+      type: TokenType.String,
+      value: 'hello',
+    });
+    expect((await it.next()).value[0]).toMatchObject({
+      type: TokenType.String,
+      value: 'world',
+    });
+    expect((await it.next()).value[0]).toMatchObject({
+      type: TokenType.ObjectEnd,
+      value: '}',
     });
   });
 });

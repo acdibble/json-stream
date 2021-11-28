@@ -9,6 +9,8 @@ export enum TokenType {
   String,
   ArrayStart,
   ArrayEnd,
+  ObjectStart,
+  ObjectEnd,
   Error,
   EOF,
 }
@@ -21,6 +23,8 @@ interface TokenValue {
   [TokenType.String]: string;
   [TokenType.ArrayStart]: '[';
   [TokenType.ArrayEnd]: ']';
+  [TokenType.ObjectStart]: '{';
+  [TokenType.ObjectEnd]: '}';
   [TokenType.Error]: Error;
   [TokenType.EOF]: 'EOF';
 }
@@ -78,29 +82,28 @@ export default class JSONParseStream extends Writable {
     this.sliceAt = 0;
   }
 
+  private previous(): string | null {
+    return this.buffer[this.currentIndex - 1] ?? null;
+  }
+
   private emitError(): boolean {
     this.hadError = true;
     this.emitToken(
       TokenType.Error,
-      new Error(`unexpected token '${this.currentChar()}''`),
+      new Error(`unexpected token '${this.previous()}''`),
     );
     this.emit('finish');
     return false;
   }
 
+  private matches(...values: string[]): boolean {
+    return values.some((v) => this.currentChar() === v);
+  }
+
   private consumeWhitespace() {
-    while (true) {
-      switch (this.currentChar()) {
-        case ' ':
-        case '\r':
-        case '\n':
-        case '\t':
-          this.currentIndex += 1;
-          this.sliceAt += 1;
-          continue;
-        default:
-          return;
-      }
+    while (this.matches(' ', '\n', '\r', '\t')) {
+      this.currentIndex += 1;
+      this.sliceAt += 1;
     }
   }
 
@@ -141,8 +144,19 @@ export default class JSONParseStream extends Writable {
           return this.emitToken(TokenType.ArrayEnd, ']');
         }
         return this.emitError();
+      case '{':
+        this.brackets.push('{');
+        return this.emitToken(TokenType.ObjectStart, '{');
+      case '}':
+        if (this.brackets.pop() === '{') {
+          return this.emitToken(TokenType.ObjectEnd, '}');
+        }
+        return this.emitError();
+      case ':':
+        if (this.brackets[this.brackets.length - 1] === '{') return true;
+        return this.emitError();
       case ',':
-        if (this.brackets[this.brackets.length - 1] === '[') {
+        if (['[', '{'].includes(this.brackets[this.brackets.length - 1]!)) {
           return true;
         }
         return this.emitError();
