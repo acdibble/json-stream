@@ -4,7 +4,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { on } from 'events';
 import { Readable } from 'stream';
-import JSONParseStream, { Token, TokenType } from './JSONParseStream';
+import JSONParseStream, { Token, TokenType } from './JSONParseStream.js';
 
 type TokenIterator = AsyncIterableIterator<[Token]>;
 
